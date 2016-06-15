@@ -10,8 +10,8 @@ int score=0, board[4][4]={0};
 
 void putBoard()
 {
-	system("cls");	//For windows
-	system("clear");//For linux
+	//'clc' for windows, 'clear' for linux
+	if (system("cls") != 0) system("clear");
 	printf("\n2048  by正逍遥0716\ngithub.com/zhengxiaoyao0716\n当前分数%8d\n", score);
 	printf("\n____________________________\n");
 	int x, y;
