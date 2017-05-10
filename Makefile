@@ -1,24 +1,82 @@
-# MinGW 5.1.6
-.PHONY:clean tidy rebuild build
+################################################################
+#                  | General C|C++ Makefile |                  #
+#            Both Windows(MinGW) and Linux support.            #
+#     https://github.com/zhengxiaoyao0716/general-makefile     #
+# v1.0                                  --by: zhengxiaoyao0716 #
+################################################################
 
-SHELL   =   cmd
+# Custom variates.
 
-SRCDIR      =   src/main
+MAINDIR      =   src/main
 HEADDIR     =   src/head
 LIBDIR      =   lib
-DOCSDIR     =   doc
 OUTDIR      =   out
+BINNAME     =   ${CURDIR}
+
+
+# OS variates.
+
+ifdef ComSpec
+# Windows
+MAINDIR      :=  ${subst /,\\,${MAINDIR}}
+HEADDIR     :=  ${subst /,\\,${HEADDIR}}
+LIBDIR      :=  ${subst /,\\,${LIBDIR}}
+OUTDIR      :=  ${subst /,\\,${OUTDIR}}
+BUILDDIR    =   build_win
+
+SHELL   =   cmd
+RM      =   del /F /Q
+RMDIR   =   rd /S /Q
+ECHO    =   echo # A space bofore `#`
+ENDECHO =   
+
+CHARSET     =   GBK
+LIBPATHS    =   -L"C:\MingW\lib"
+BIN         =   ${OUTDIR}/${notdir ${BINNAME}.exe}
+NULL        =   
+TR_TAB      =   ${NULL}	# A tab before `#`
+TR_$        =   $$
+TR_%        =   %%
+
+define make-struct
+	@if not exist ${OUTDIR}\\${BUILDDIR} (mkdir ${OUTDIR}\\${BUILDDIR})
+	@xcopy /T /E ${MAINDIR} ${OUTDIR}\\${BUILDDIR}
+endef
+
+else
+# LINUX
+BUILDDIR    =   .build_lin
+
+SHELL   =   bash
+RM      =   rm -f
+RMDIR   =   rm -rf
+ECHO    =   echo -e "
+ENDECHO =   "
+
+CHARSET     =   UTF-8
+LIBPATHS    =   
+BIN         =   ${OUTDIR}/${notdir ${BINNAME}}
+TR_TAB      =   \t
+TR_$        =   \$$
+TR_%        =   %
+
+define make-struct
+	@mkdir -p ${OUTDIR}/${BUILDDIR}
+	@rsync -a -f "+ */" -f "- *" ${MAINDIR}/ ${OUTDIR}/${BUILDDIR}
+endef
+
+endif
+
+
+# General variates.
 
 CC      =   g++
 SRCEXT  =   cpp
-DEPEXT  =   depend
-RM      =   del /f /q
-MKDIR   =   mkdir
-RMDIR   =   rmdir /q /s
-FLAGS       =   -g -Wall -O3 -finput-charset=UTF-8 -fexec-charset=GB2312
+FLAGS       =   -g -Wall -O3 -finput-charset=UTF-8 -fexec-charset=${CHARSET}
 CFLAGS      =   -I"${HEADDIR}"
-LIBPATHS    =   -L"C:\MingW\lib" -L"${LIBDIR}"
+LIBPATHS    +=  -L"${LIBDIR}"
 LIBS        =   #-lopengl32 #-mwindows
+
 SRCT        =   *.${SRCEXT}
 SRCS        +=  ${SRCT}
 SRCS        +=  */${SRCT}
@@ -26,38 +84,38 @@ SRCS        +=  */*/${SRCT}
 SRCS        +=  */*/*/${SRCT}
 SRCS        +=  */*/*/*/${SRCT}
 SRCS        +=  */*/*/*/*/${SRCT}
-SRC     =   ${wildcard ${addprefix ${SRCDIR}/,${SRCS}}}
-OBJ     =   ${patsubst ${SRCDIR}/%.${SRCEXT},${OUTDIR}/%.o,${SRC}}
-DEP     =   ${patsubst ${SRCDIR}/%.${SRCEXT},${OUTDIR}/%.${DEPEXT},${SRC}}
-BIN     =   ${OUTDIR}/${notdir ${CURDIR}.exe}
 
-build: ${BIN}
-	@echo start ${BIN} > run.bat
-	@run.bat
-	@${RM} run.bat
-rebuild: tidy build
-${BIN}: ${OBJ}
-	@echo make target: ${BIN}
-	@${CC} ${FLAGS} ${CFLAGS} $^ ${LIBPATHS} ${LIBS} -o $@
-prepare:
-	@echo prepare folders
-	@if not exist ${OUTDIR} (${MKDIR} ${OUTDIR} && @echo make directory: ${OUTDIR})
-	@if not exist ${DOCSDIR} (${MKDIR} ${DOCSDIR} && @echo make directory: ${DOCSDIR})
-#	@if not exist ${subst /,\,${dir ${@}}} (${MKDIR} ${subst /,\,${dir ${@}}} && @echo make directory: ${subst /,\,${dir ${@}}})
-	@xcopy ${SRCDIR} ${OUTDIR} /T /E
+SRC     =   ${wildcard ${addprefix ${MAINDIR}/,${SRCS}}}
+OBJ     =   ${patsubst ${MAINDIR}/%.${SRCEXT},${OUTDIR}/${BUILDDIR}/%.o,${SRC}}
+DEP     =   ${patsubst ${MAINDIR}/%.${SRCEXT},${OUTDIR}/${BUILDDIR}/%.d,${SRC}}
+
+
+# Process
+
+start: build
+	${BIN}
+
 clean:
-	@echo remove build directory and docs directory
-	@if exist ${OUTDIR} (@${RMDIR} ${OUTDIR})
-	@if exist ${DOCSDIR} (@${RMDIR} ${DOCSDIR})
-tidy:
-	@echo tidy dependencies, objects and binaries only
-	${foreach file,${subst /,\,${OBJ}},@if exist ${file} (${RM} ${file}) &&}@echo on
-	${foreach file,${subst /,\,${DEP}},@if exist ${file} (${RM} ${file}) &&}@echo on
+	@${RMDIR} ${OUTDIR}
+	@${ECHO} ================================${ENDECHO}
+	@${ECHO} ===       Clean finish.      ===${ENDECHO}
+	@${ECHO} ================================${ENDECHO}
+build: ${BIN}
+rebuild: clean prepare build
+prepare:
+	@${make-struct}
+
+${BIN}: ${OBJ}
+	@${CC} ${FLAGS} ${CFLAGS} $^ ${LIBPATHS} ${LIBS} -o $@
+	@${ECHO} ================================${ENDECHO}
+	@${ECHO} ===       Build success.     ===${ENDECHO}
+	@${ECHO} ================================${ENDECHO}
+
 sinclude ${DEP}
-${OUTDIR}/%.${DEPEXT}:${SRCDIR}/%.${SRCEXT}
-	@if not exist ${OUTDIR} (${MKDIR} ${OUTDIR} && @echo make directory: ${OUTDIR})
-	@if not exist ${subst /,\,${dir ${@}}} (${MKDIR} ${subst /,\,${dir ${@}}} && @echo make directory: ${subst /,\,${dir ${@}}})
-	@echo make dependency for ${patsubst ${SRCDIR}/%.${SRCEXT},${OUTDIR}/%.o,${<}}
-	@${CC} ${CFLAGS} -MM -MT ${patsubst ${SRCDIR}/%.${SRCEXT},${OUTDIR}/%.o,${<}} ${<} > ${@}
-	@echo 	@@echo make object: ${patsubst ${SRCDIR}/%.${SRCEXT},${OUTDIR}/%.o,${<}} >> ${@}
-	@echo 	@@$${CC} $${FLAGS}  $${CFLAGS} -c -o $$@ $${filter %%.${SRCEXT},$$^^} >> ${@}
+${OUTDIR}/${BUILDDIR}/%.d:${MAINDIR}/%.${SRCEXT}
+	@${make-struct}
+	@${CC} ${CFLAGS} -MM -MT ${patsubst ${MAINDIR}/%.${SRCEXT},${OUTDIR}/${BUILDDIR}/%.o,${<}} ${<} > ${@}
+	@${ECHO}${TR_TAB}@@echo make object: ${patsubst ${MAINDIR}/%.${SRCEXT},${OUTDIR}/${BUILDDIR}/%.o,${<}}${ENDECHO} >> ${@}
+	@${ECHO}${TR_TAB}@@${TR_$}{CC} ${TR_$}{FLAGS}  ${TR_$}{CFLAGS} -c -o ${TR_$}@ ${TR_$}{filter ${TR_%}.${SRCEXT},${TR_$}^^}${ENDECHO} >> ${@}
+
+.PHONY: start clean build rebuild
